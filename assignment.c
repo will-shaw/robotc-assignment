@@ -10,39 +10,41 @@
 Tile Width: 95mm
 Axel: { span: 120mm, circumference: 376.9mm, radius: 60mm)
 Wheel { span: 55mm, circumference: 172.7mm, raduis: 27.5mm)
-
+encoderCount = 360
 */
+const int wheelCircum = 134;
+const int speed = 50;
+const int turnSpeed = 30;
+const int tileWidth = 95;
+const int laserOffset = 20;
+
+const int reflectedBlack = 20;
+const int correctionRadius = 150;
+const int correctionDistance = 80;
+const int correctionIncrement = 20;
+
+string numbers[] = {"One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"};
 
 bool missionComplete = false;
 bool isBlack = false;
 bool objectDetected = false;
 bool bumped = false;
-bool reflectionPathing = true;
 
-int wheelCircum = 172;
-int speed = 50;
-int turnSpeed = 30;
 int tileCount = 0;
-int tileWidth = 95;
-int laserOffset = 20;
-
-int reflectedBlack = 20;
-
-int correctionDistance = 50; // 50 mm
-int correctionRadius = 160; // 138 mm
-
-short black;
 
 float lengthToDegrees(float value) {
-	return ((value / wheelCircum) * 360) * 2;
+	return ((value / wheelCircum) * 360);
 }
+
+//float degreesToLength(float value) {
+//	return (360 / (value * wheelCircum));
+//}
 
 float getTurnAngle(float adj) {
 	return atan(correctionRadius/adj);
-	//sqrt(pow((correctionDistance + (tileWidth /2)), 2) + pow(correctionRadius, 2));
 }
 
-void defeated() {
+void lost() {
 	playTone(780, 50);
 	sleep(200);
 	playTone(500, 60);
@@ -70,58 +72,52 @@ void moveToTileEdge() {
 
 void scanForObject() {
 	pivot(-1);
-	while (!objectDetected) {
+	int totalPivot = 0;
+	while (!objectDetected && totalPivot <= 360) {
 		pivot(1, 30);
+		totalPivot += 30;
 	}
+}
+
+int correctiveMove() {
+	int adjacent = 0;
+	while(!isBlack && adjacent < correctionDistance) {
+		setMotorSyncEncoder(leftMotor, rightMotor, 0, correctionIncrement, speed);
+		adjacent += correctionIncrement;
+		waitUntilMotorStop(leftMotor);
+	}
+	return adjacent;
+}
+
+bool correctiveRealign(int direction, float angle) {
+	if (isBlack) {
+		setMotorSyncEncoder(leftMotor, rightMotor, 0, lengthToDegrees((tileWidth/2) + laserOffset), speed);
+		waitUntilMotorStop(leftMotor);
+		pivot(direction, angle);
+		return true;
+	}
+	return false;
 }
 
 /* If we expect a tile but don't find one; calculate correction */
 void correction() {
-	/* Turn 90 degrees left */
+
 	pivot(-1);
-
-	int totalDelay = 0;
-
-	while (!isBlack) {
-		setMotorSync(leftMotor, rightMotor, 0, speed);
-		delay(10);
-		totalDelay += 10;
+	int adjacent = correctiveMove();
+	if (correctiveRealign(1, getTurnAngle(adjacent))) {
+		return;
 	}
-	// requires speed to be measures for m per/s.
-	float distance = speed * totalDelay;
 
-	float angle = getTurnAngle(distance + laserOffset);
-
-	pivot(1, angle);
-
-
-
-	/* Drive a short distance and check for 'isBlack' */
-	setMotorSyncEncoder(leftMotor, rightMotor, 0, lengthToDegrees(correctionDistance), speed);
+	pivot(1, 360);
+	setMotorSyncEncoder(leftMotor, rightMotor, 0, correctionDistance, speed);
 	waitUntilMotorStop(leftMotor);
 
-
-
-
-
-	/* If black is found; drive 50% of tileWidth forward. Then rotate relative to the angle of inaccuracy in order to straighten up. */
-	if (isBlack) {
-		setMotorSyncEncoder(leftMotor, rightMotor, 0, lengthToDegrees(tileWidth/2), speed);
-		waitUntilMotorStop(leftMotor);
-		pivot(1, getTurnAngle(34));
-
-		/* If black is not found here, rotate 360 degrees, then drive double the distance to check the other side */
-		} else {
-		pivot(1, 360);
-		setMotorSyncEncoder(leftMotor, rightMotor, 0, lengthToDegrees(correctionDistance) * 2, speed);
-		waitUntilMotorStop(leftMotor);
-		pivot(-1, getTurnAngle(33));
+	adjacent = correctiveMove();
+	if (correctiveRealign(-1, getTurnAngle(adjacent))) {
+		return;
 	}
-	/* Easily an edge case here if it hasn't been found, left or right side. We're screwed. It'll keep doing this until it finds anything black. */
 
-	if (!isBlack) {
-		defeated();
-	}
+	lost();
 }
 
 void push() {
@@ -137,18 +133,14 @@ task bumpCheck() {
 
 task sonarScan() {
 	while (!missionComplete) {
-		objectDetected = SensorValue[sonarSensor] < 400;
+		objectDetected = SensorValue[sonarSensor] < 600;
 		displayCenteredBigTextLine(4, "Detected");
 	}
 }
 
 task updateColour() {
 	while (!missionComplete) {
-		if (reflectionPathing) {
-			isBlack = SensorValue[Colour] <= reflectedBlack;
-		} else {
-			isBlack = SensorValue[Colour] == black;
-		}
+		isBlack = SensorValue[Colour] <= reflectedBlack;
 	}
 }
 
@@ -157,12 +149,10 @@ task stageThree() {
 	setMotorSyncEncoder(leftMotor, rightMotor, 0, lengthToDegrees(1400), speed);
 	waitUntilMotorStop(leftMotor);
 
-	/* Begin scanning for tower, high priority; then rotate in increments until something is detected. */
 	startTask(bumpCheck, 255);
 	startTask(sonarScan, 255);
 	scanForObject();
 
-	/* Until we bump into the object, make corrections when we lose sight of it */
 	while (!bumped) {
 		if (objectDetected) {
 			setMotorSync(leftMotor, rightMotor, 0, speed);
@@ -170,35 +160,30 @@ task stageThree() {
 			scanForObject();
 		}
 	}
-
-	/* Since the object has been hit; push it off */
 	push();
 	missionComplete = true;
 }
 
+
+
 /* Count 15 black tiles across the floor */
 task stageTwo() {
-	/* Move until not black (tile edge). */
 	moveToTileEdge();
 	bool newTile = true;
 
 	while (tileCount < 15) {
 
-		/* If the current tile is black and new tile (has been previously no black) */
 		if (isBlack && newTile) {
-			tileCount++;
 			playTone(800, 30);
 			newTile = false;
+			tileCount++;
 			displayCenteredBigTextLine(4, "%d", tileCount);
 			moveToTileEdge();
 		}
 
-		/* Otherwise, assume we've moved off black; drive to the edge of the correction radius. */	// Could be an egde case here where it's not a new tile so we drive double the distance.
 		setMotorSyncEncoder(leftMotor, rightMotor, 0, lengthToDegrees(correctionRadius), speed);
 		waitUntilMotorStop(leftMotor);
 
-
-		/* Now check for black; if not, attempt correction. */
 		if (!isBlack) {
 			displayCenteredBigTextLine(4, "Correcting");
 			correction();
@@ -207,47 +192,36 @@ task stageTwo() {
 		}
 	}
 
-	/* Pivot; ready to start stage three */
 	pivot(1);
 	startTask(stageThree,255);
 }
 
 /* Drive forward to black tile and pivot */
 task stageOne() {
-	/* Drive forward until we leave the black start tile. */
+
 	while (isBlack) {
 		setMotorSync(leftMotor, rightMotor, 0, speed);
 	}
 
-	/* Now drive forward until you hit the black tile. */
 	while (!isBlack) {
 		setMotorSync(leftMotor, rightMotor, 0, speed);
 	}
-	/* Once we find a black tile, drive forward appros 50% tile width .*/
+
 	setMotorSyncEncoder(leftMotor, rightMotor, 0, lengthToDegrees(tileWidth + laserOffset), speed);
 	waitUntilMotorStop(leftMotor);
-
-	/* Now pivot to the right. Then start stage 2 */
 	pivot(1);
 	startTask(stageTwo, 255);
 }
 
-
 task main()
 {
-	/* calibrate the black colour from first tile */
-	if (!reflectionPathing) {
-		black = SensorValue[Colour];
-	}
 	isBlack = true;
+	setSoundVolume(100);
 
-	/* Start checking the colour and updating 'isBlack' */
 	startTask(updateColour, 255);
 
-	/* start stage one, move off start tile and find stipe */
-	startTask(stageOne, 255); // Start state one.
+	startTask(stageOne, 255);
 
-	/* Wait for a mission complete flag. Play tone and exit. */
 	while (!missionComplete) { }
 
 	displayCenteredBigTextLine(4, "Mission Complete!");
