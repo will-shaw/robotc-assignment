@@ -13,7 +13,7 @@ Wheel { span: 55mm, circumference: 172.7mm, raduis: 27.5mm)
 encoderCount = 360
 */
 const int wheelCircum = 134;
-const int speed = 50;
+const int speed = 60;
 const int turnSpeed = 20;
 const int tileWidth = 95;
 const int laserOffset = 30;
@@ -191,9 +191,13 @@ task sonarScan() {
 	while (!missionComplete) {
 		objectDetected = SensorValue[sonarSensor] < 1000;
 		if (objectDetected) {
-			displayCenteredBigTextLine(4, "Detected");
+			if (SensorValue[sonarSensor] < 300) {
+				setMotorSyncEncoder(leftMotor, rightMotor, 0, lengthToDegrees(400), speed);
+				waitUntilMotorStop(leftMotor);
+			}
+			displayCenteredBigTextLine(4, "%d", SensorValue[sonarSensor]);
 			} else {
-			displayCenteredBigTextLine(4, "");
+			//displayCenteredBigTextLine(4, "");
 		}
 	}
 }
@@ -282,6 +286,8 @@ task main()
 	startTask(updateColour, 255);
 
 	startTask(stageOne, 255);
+
+	//startTask(stageThree, 255);
 
 	while (!missionComplete) { }
 
