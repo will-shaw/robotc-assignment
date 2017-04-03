@@ -14,13 +14,13 @@ encoderCount = 360
 */
 const int wheelCircum = 134;
 const int speed = 50;
-const int turnSpeed = 30;
+const int turnSpeed = 20;
 const int tileWidth = 95;
 const int laserOffset = 30;
 
 const int towerDistance = 1700;
 const int reflectedBlack = 20;
-const int correctionRadius = 130;
+const int correctionRadius = 110;
 const int correctionDistance = 360; //in encoder counts
 const int correctionIncrement = 20;
 
@@ -91,7 +91,7 @@ int correctiveMove() {
 	int adjacent = 0;
 
 	while(!isBlack && adjacent < correctionDistance) {
-		setMotorSyncEncoder(leftMotor, rightMotor, 0, correctionIncrement, speed);
+		setMotorSyncEncoder(leftMotor, rightMotor, 0, correctionIncrement, speed/2);
 		displayCenteredBigTextLine(4, "Driven: %d", adjacent);
 		adjacent += correctionIncrement;
 		waitUntilMotorStop(leftMotor);
@@ -121,8 +121,29 @@ void correctiveRealign(int direction, float angle) {
 	}
 }
 
+bool initialCorrect(int dir) {
+	pivot(dir, 90);
+	if(isBlack) return true;
+	pivot(-1 * dir, 90);
+	return false;
+}
+
 /* If we expect a tile but don't find one; take corrective action. */
-void correction() {
+bool correction() {
+
+	if (initialCorrect(-1)) {
+		setMotorSyncEncoder(leftMotor, rightMotor, 0, lengthToDegrees(tileWidth/3), speed/2);
+		waitUntilMotorStop(leftMotor);
+		pivot(1, 80);
+		return true;
+	}
+
+	if (initialCorrect(1)) {
+		setMotorSyncEncoder(leftMotor, rightMotor, 0, lengthToDegrees(tileWidth/3), speed/2);
+		waitUntilMotorStop(leftMotor);
+		pivot(-1, 80);
+		return true;
+	}
 
 	pivot(-1);
 
@@ -131,12 +152,12 @@ void correction() {
 	int adjacent = correctiveMove();
 	if (adjacent < correctionDistance) {
 		if (adjacent == 0) {
-		 	correctiveRealign(1, 90);
-		} else {
+			correctiveRealign(1, 90);
+			} else {
 			correctiveRealign(1, getTurnAngle(adjacent));
 		}
 		displayCenteredBigTextLine(4, "Adj: %d", adjacent);
-		return;
+		return true;
 	}
 
 	pivot(1, 360);
@@ -147,14 +168,15 @@ void correction() {
 	if (adjacent < correctionDistance) {
 		if (adjacent == 0) {
 			correctiveRealign(-1, 90);
-		} else {
+			} else {
 			correctiveRealign(-1, getTurnAngle(adjacent));
 		}
 		displayCenteredBigTextLine(4, "Adj: %d", adjacent);
-		return;
+		return true;
 	}
 
 	lost();
+	return false;
 }
 
 /* Performs a push to push the obstable off a tile. */
@@ -180,7 +202,7 @@ task sonarScan() {
 		objectDetected = SensorValue[sonarSensor] < 1000;
 		if (objectDetected) {
 			displayCenteredBigTextLine(4, "Detected");
-		} else {
+			} else {
 			displayCenteredBigTextLine(4, "");
 		}
 	}
@@ -228,19 +250,19 @@ task stageTwo() {
 			displayCenteredBigTextLine(4, "%d", tileCount);
 			moveToTileEdge();
 		}
-
 		displayCenteredBigTextLine(4, "Driving to Radius");
 		setMotorSyncEncoder(leftMotor, rightMotor, 0, lengthToDegrees(correctionRadius), speed);
 		waitUntilMotorStop(leftMotor);
 
 		if (!isBlack) {
 			displayCenteredBigTextLine(4, "Correcting");
-			correction();
+			newTile = correction();
 			} else {
 			newTile = true;
 		}
 	}
 
+	playTone(800, 30);
 	pivot(1);
 	startTask(stageThree,255);
 }
@@ -276,7 +298,17 @@ task main()
 	while (!missionComplete) { }
 
 	displayCenteredBigTextLine(4, "Mission Complete!");
-	playTone(700, 100);
-	sleep(100);
-	playTone(1000, 200);
+
+	playTone(783, 15);
+	sleep(200);
+	playTone(1046, 15);
+	sleep(200);
+	playTone(1318, 15);
+	sleep(200);
+	playTone(1567, 15);
+	sleep(300);
+	playTone(1318, 15);
+	sleep(200);
+	playTone(1567, 30);
+	sleep(1000);
 }
