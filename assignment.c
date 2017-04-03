@@ -215,18 +215,14 @@ task stageThree() {
 
 	while (!bumped) {
 		if (objectDetected) {
-			setMotorSyncEncoder(leftMotor, rightMotor, 0, lengthToDegrees(1000), speed);
-			waitUntilMotorStop(leftMotor);
-			//setMotorSync(leftMotor, rightMotor, 0, speed);
+				setMotorSync(leftMotor, rightMotor, 0, speed);
 			} else {
-			scanForObject();
+				scanForObject();
 		}
 	}
 	push();
 	missionComplete = true;
 }
-
-
 
 /* Count 15 black tiles across the floor */
 task stageTwo() {
