@@ -20,7 +20,7 @@ const int laserOffset = 30;
 
 const int towerDistance = 1700;
 const int reflectedBlack = 20;
-const int correctionRadius = 110;
+const int correctionRadius = 125;
 const int correctionDistance = 360; //in encoder counts
 const int correctionIncrement = 20;
 
@@ -110,15 +110,10 @@ int correctiveMove() {
 
 /* Begins corrective realign, takes an angle to pivot after moving to center of tile. */
 void correctiveRealign(int direction, float angle) {
-	playTone(1000, 20);
-	sleep(20);
-	playTone(500, 20);
-	if (isBlack) {
 		setMotorSyncEncoder(leftMotor, rightMotor, 0, lengthToDegrees(tileWidth/3), speed);
 		waitUntilMotorStop(leftMotor);
 		displayCenteredBigTextLine(4, "Aligning");
 		pivot(direction, angle * 2);
-	}
 }
 
 bool initialCorrect(int dir) {
@@ -131,17 +126,26 @@ bool initialCorrect(int dir) {
 /* If we expect a tile but don't find one; take corrective action. */
 bool correction() {
 
+	setMotorSyncEncoder(leftMotor, rightMotor, 0, lengthToDegrees(tileWidth/4), -speed/2);
+	waitUntilMotorStop(leftMotor);
+
+
 	if (initialCorrect(-1)) {
-		setMotorSyncEncoder(leftMotor, rightMotor, 0, lengthToDegrees(tileWidth/3), speed/2);
-		waitUntilMotorStop(leftMotor);
-		pivot(1, 80);
+		correctiveRealign(1, 40);
+
+		//setMotorSyncEncoder(leftMotor, rightMotor, 0, lengthToDegrees(tileWidth/3), speed/2);
+		//waitUntilMotorStop(leftMotor);
+		//pivot(1, 80);
 		return true;
 	}
 
 	if (initialCorrect(1)) {
-		setMotorSyncEncoder(leftMotor, rightMotor, 0, lengthToDegrees(tileWidth/3), speed/2);
-		waitUntilMotorStop(leftMotor);
-		pivot(-1, 80);
+		correctiveRealign(-1, 40);
+
+
+		//setMotorSyncEncoder(leftMotor, rightMotor, 0, lengthToDegrees(tileWidth/3), speed/2);
+		//waitUntilMotorStop(leftMotor);
+		//pivot(-1, 80);
 		return true;
 	}
 
@@ -241,7 +245,7 @@ task stageTwo() {
 	moveToTileEdge();
 	bool newTile = true;
 
-	while (tileCount < 15) {
+	while (tileCount < 14) {
 
 		if (isBlack && newTile) {
 			playTone(800, 30);
