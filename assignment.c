@@ -77,17 +77,14 @@ void scanForObject() {
 	pivot(-1);
 	int totalPivot = 0;
 	while (!objectDetected && totalPivot <= 360) {
-		pivot(1, 30);
-		totalPivot += 30;
+		pivot(1, 20);
+		totalPivot += 20;
 	}
-	pivot(1, 50);
+	pivot(1, 30);
 }
 
 /* Begins corrective movement left or right. Returns distance it drove in encoder counts. */
 int correctiveMove() {
-	playTone(500, 20);
-	sleep(20);
-	playTone(1000, 20);
 	int adjacent = 0;
 
 	while(!isBlack && adjacent < correctionDistance) {
@@ -110,10 +107,10 @@ int correctiveMove() {
 
 /* Begins corrective realign, takes an angle to pivot after moving to center of tile. */
 void correctiveRealign(int direction, float angle) {
-		setMotorSyncEncoder(leftMotor, rightMotor, 0, lengthToDegrees(tileWidth/3), speed);
-		waitUntilMotorStop(leftMotor);
-		displayCenteredBigTextLine(4, "Aligning");
-		pivot(direction, angle * 2);
+	setMotorSyncEncoder(leftMotor, rightMotor, 0, lengthToDegrees(tileWidth/3), speed);
+	waitUntilMotorStop(leftMotor);
+	displayCenteredBigTextLine(4, "Aligning");
+	pivot(direction, angle * 2);
 }
 
 bool initialCorrect(int dir) {
@@ -132,27 +129,16 @@ bool correction() {
 
 	if (initialCorrect(-1)) {
 		correctiveRealign(1, 40);
-
-		//setMotorSyncEncoder(leftMotor, rightMotor, 0, lengthToDegrees(tileWidth/3), speed/2);
-		//waitUntilMotorStop(leftMotor);
-		//pivot(1, 80);
 		return true;
 	}
 
 	if (initialCorrect(1)) {
 		correctiveRealign(-1, 40);
-
-
-		//setMotorSyncEncoder(leftMotor, rightMotor, 0, lengthToDegrees(tileWidth/3), speed/2);
-		//waitUntilMotorStop(leftMotor);
-		//pivot(-1, 80);
 		return true;
 	}
 
 	pivot(-1);
 
-	//setMotorSyncEncoder(leftMotor, rightMotor, 0, lengthToDegrees(laserOffset / 2), -1 * speed);
-	//waitUntilMotorStop(leftMotor);
 	int adjacent = correctiveMove();
 	if (adjacent < correctionDistance) {
 		if (adjacent == 0) {
@@ -229,7 +215,9 @@ task stageThree() {
 
 	while (!bumped) {
 		if (objectDetected) {
-			setMotorSync(leftMotor, rightMotor, 0, speed);
+			setMotorSyncEncoder(leftMotor, rightMotor, 0, lengthToDegrees(1000), speed);
+			waitUntilMotorStop(leftMotor);
+			//setMotorSync(leftMotor, rightMotor, 0, speed);
 			} else {
 			scanForObject();
 		}
